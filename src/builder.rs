@@ -1,16 +1,15 @@
-use ndarray::{Array2};
 
+use network::NeuralNetwork;
 use layer::Layer;
 use activation::Activation;
-use objective::Objective;
 
 
-pub struct NeuralNetwork {
+pub struct NeuralNetworkBuilder {
     last_layer_outputs: usize,
     layers: Vec<Layer>,
 }
 
-impl NeuralNetwork {
+impl NeuralNetworkBuilder {
     pub fn new(inputs: usize) -> Self {
         Self {
             last_layer_outputs: inputs,
@@ -18,27 +17,15 @@ impl NeuralNetwork {
         }
     }
 
-    pub fn layer(&mut self, neurons: usize, activation: Activation) {
-        self.layers.push(Layer::new(neurons, self.last_layer_outputs, activation));
+    pub fn layer(mut self, neurons: usize, activation_function: Activation) -> Self {
+        self.layers.push(Layer::new(neurons, self.last_layer_outputs, activation_function));
         self.last_layer_outputs = neurons;
+        self
     }
 
-    pub fn feed_forward(&mut self, input: Array2<f64>) -> Array2<f64> {
+    pub fn build(mut self) -> NeuralNetwork {
         assert!(!self.layers.is_empty(), "No layers defined");
-        let mut layer_result = input;
-        for mut layer in &mut self.layers {
-            layer.calculate_activities(&layer_result);
-            layer_result = layer.activities.clone();    // TODO : optimize so no need to clone every layer_result
-        }
-
-        layer_result
-    }
-
-    pub fn train(&mut self, training_set: Array2<f64>, expected_result: Array2<f64>, objective_function: Objective) {
-        // Training set contains input data
-
-
-        // Stochastic gradient descent -> Mini batches of training set to compare to expected results instead of the whole batch ?
+        NeuralNetwork::new(self.layers)
     }
 
 }

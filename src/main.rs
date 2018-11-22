@@ -10,12 +10,13 @@ pub mod builder;
 pub mod layer;
 pub mod activation;
 pub mod objective;
+pub mod network;
 
 
 use rand::distributions::Range;
 use ndarray::{Array, Array2, Axis};
 use ndarray_rand::RandomExt;
-use builder::NeuralNetwork;
+use builder::NeuralNetworkBuilder;
 use activation::Activation;
 
 
@@ -24,14 +25,17 @@ use activation::Activation;
 fn main() {
     println!("Hello world!");
 
-    let mut network = NeuralNetwork::new(2);
-    network.layer(4, Activation::TanH);
-    network.layer(4, Activation::TanH);
-    network.layer(1, Activation::TanH);
+    let input_data = Array2::<f64>::ones((1, 2));
 
-    let input = Array2::<f64>::ones((1, 2));
+    let mut network = NeuralNetworkBuilder::new(input_data.cols())
+        .layer(4, Activation::TanH)
+        .layer(4, Activation::TanH)
+        .layer(1, Activation::TanH)
+        .build();
 
-    let result = network.feed_forward(input);
+
+
+    let result = network.feed_forward(input_data);
     println!("{:?}", result);
 
 

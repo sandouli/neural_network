@@ -8,16 +8,16 @@ pub struct Layer {
     neurons: usize,
     weights: Array2<f64>,
     pub activities: Array2<f64>,
-    activation: Activation,
+    activation_function: Activation,
 }
 
 impl Layer {
-    pub fn new(neurons: usize, inputs: usize, activation: Activation) -> Self {
+    pub fn new(neurons: usize, inputs: usize, activation_function: Activation) -> Self {
         Self {
             neurons,
             weights: get_random_weights_and_bias_matrix(inputs, neurons),
             activities: Array2::<f64>::zeros((1, 1)),
-            activation,
+            activation_function,
         }
     }
 
@@ -31,7 +31,7 @@ impl Layer {
         let mut output = input_with_bias.dot(&self.weights);
 
         // Apply activation function
-        self.activities = match self.activation {
+        self.activities = match self.activation_function {
             Activation::TanH => {
                 output.map(|v| v.tanh())
             },

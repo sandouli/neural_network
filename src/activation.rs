@@ -35,8 +35,12 @@ impl Activation {
                 array.map(|v| if *v < 0.0 { v * slope } else { *v })
             }
             Activation::Softmax => {
-                let sum_exp: f64 = array.map(|v| v.exp()).iter().sum();
-                array.map(|v| v.exp() / sum_exp)
+                let mut result = array.clone();
+                for i in 0..result.rows() {
+                    let sum_exp =  array.slice(s![i, ..]).map(|v| v.exp()).scalar_sum();
+                    result.slice_mut(s![i, ..]).assign(&array.slice(s![i, ..]).map(|v| v.exp() / sum_exp));
+                }
+                result
             }
         }
     }
@@ -45,6 +49,9 @@ impl Activation {
 
 #[cfg(test)]
 mod tests {
+
+    // TODO : replace assert_eq by assert_ulps_eq because floating point arithmetic is not quite precise and need a range
+
     use ndarray::arr2;
     use super::*;
 
@@ -167,22 +174,19 @@ mod tests {
             ]),
             arr2(&[
                 [
-                    0.00000011252180729828334,
-                    0.000006143482516872218,
-                    0.00001669971688906959,
-                    0.000015110528711837235,
+                    0.002955946738114491,
+                    0.16138922349755833,
+                    0.43870139354252835,
+                    0.3969534362217987,
                 ],
                 [
-                    0.00004539453695996848,
-                    0.00001845604144589644,
-                    0.00001686755183406304,
-                    0.999881215619835,
+                    0.0000453962650255386,
+                    0.00001845674402492729,
+                    0.000016868193942949457,
+                    0.9999192787970066,
                 ],
             ]),
         );
-
-        // Sum of softmax function output should be equal to one (1.0)
-        assert_eq!(1.0, Activation::Softmax.compute(arr2(&[[-5., -1., 0., -0.1], [1., 0.1, 0.01, 11.]])).iter().sum());
     }
 
 

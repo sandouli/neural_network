@@ -14,54 +14,61 @@ pub mod network;
 
 
 use rand::distributions::Range;
-use ndarray::{Array, Array2, Axis};
+use ndarray::{Array2, arr2, arr1};
 use ndarray_rand::RandomExt;
 use builder::NeuralNetworkBuilder;
 use activation::Activation;
+use objective::Objective;
 
 
 
 
 fn main() {
-    println!("Hello world!");
 
-    let input_data = Array2::<f64>::ones((1, 2));
+    test_training_addition_network();
 
-    let mut network = NeuralNetworkBuilder::new(input_data.cols())
-        .layer(4, Activation::TanH)
-        .layer(4, Activation::TanH)
-        .layer(1, Activation::TanH)
-        .build();
+    // TODO : test current implementation with MNIST
 
-
-
-    let result = network.feed_forward(input_data);
-    println!("{:?}", result);
-
-
-    //tests_array();
 }
 
-fn tests_array() {
 
-    let mut input = Array2::<f64>::random((3, 3), Range::new(0.0, 2.0));
-    input.slice_mut(s![.., -1]).fill(1.0);
+fn test_training_addition_network() {
 
-    let mut output = Array2::<f64>::ones((input.rows(), 3));
 
-    let mut weights = Array2::<f64>::random((input.cols(), output.cols()), Range::new(0.0, 1.0));
-    weights.slice_mut(s![.., -1]).fill(0.1);
+    let mut input_data = Array2::<f64>::zeros((10000, 2));
+    let mut expected_result = Array2::<f64>::zeros((10000, 1));
 
-    output = input.dot(&weights);
+    let mut new_input_data: Array2<f64>;
+    let mut new_expected_result: Array2<f64>;
 
-    println!("{:?}", output);
-    let mut test = Array2::<f64>::ones((input.rows(), output.cols() + 1));
-    test.slice_mut(s![.., ..-1]).assign(&input.dot(&weights));
-    println!("{:?}", test);
-    println!("{:?}", test.map(|x| x.tanh()));
-    println!("{}", -0.17f64.tanh());
-    println!("{}", 0.253f64.tanh());
-//    test.slice_mut(s![.., -1]).fill(1.0);
-//    println!("{:?}", test);
 
+    for i in 0..1000 {
+        for j in 0..10 {
+            input_data.slice_mut(s![i*10 + j, ..]).assign(&arr1(&[i as f64 / 100.0, j as f64 / 100.0]));
+
+            expected_result.slice_mut(s![i*10 + j, ..]).assign(&arr1(&[(i + j) as f64 / 100.0]));
+
+        }
+    }
+
+    let mut network = NeuralNetworkBuilder::new(input_data.cols())
+        .layer(2, Activation::ReLU)
+        .layer(3, Activation::ReLU)
+        .layer(4, Activation::ReLU)
+        .layer(5, Activation::ReLU)
+        .layer(2, Activation::ReLU)
+        .layer(1, Activation::Identity)
+//        .layer(4, Activation::Sigmoid)
+//        .layer(4, Activation::LeakyReLU(0.3))
+//        .layer(1, Activation::LeakyReLU(0.3))
+//        .layer(1, Activation::Softmax)
+        .build();
+
+    println!("Before training : {:?}", network.feed_forward(&arr2(&[[1.0 / 100.0, 2.0 / 100.0]])));
+
+    network.train(&mut input_data, expected_result.clone(), Objective::SumSquaredError);
+
+    println!("After training : {:?}", network.feed_forward(&arr2(&[[1.0 / 100.0, 2.0 / 100.0]]))); // Should equals 0.03
+    println!("After training : {:?}", network.feed_forward(&arr2(&[[2.0 / 100.0, 2.0 / 100.0]]))); // Should equals 0.04
+    println!("After training : {:?}", network.feed_forward(&arr2(&[[20.0 / 100.0, 2.0 / 100.0]]))); // Should equals 0.22
 }

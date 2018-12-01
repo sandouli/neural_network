@@ -1,14 +1,15 @@
 use rand::distributions::Range;
-use ndarray::{Array, Array2, Axis};
+use ndarray::{Array, Array2};
 use ndarray_rand::RandomExt;
 use activation::Activation;
 
 
 pub struct Layer {
     neurons: usize,
-    weights: Array2<f64>,
+    pub weights: Array2<f64>,
+    pub output: Array2<f64>,
     pub activities: Array2<f64>,
-    activation_function: Activation,
+    pub activation_function: Activation,
 }
 
 impl Layer {
@@ -25,24 +26,23 @@ impl Layer {
         Self {
             neurons,
             weights,
+            output: Array2::<f64>::zeros((1, 1)),
             activities: Array2::<f64>::zeros((1, 1)),
             activation_function,
         }
     }
 
-    pub fn calculate_activities(&mut self, input: &Array2<f64>) -> &Array2<f64> {
+    pub fn calculate_activities(&mut self, input: &Array2<f64>) {
 
         // Get input data and add the bias node to each row
         let mut input_with_bias = Array2::<f64>::ones((input.rows(), input.cols() + 1));
         input_with_bias.slice_mut(s![.., ..-1]).assign(&input);
 
         // Compute matrix calculation between input and weights
-        let mut output = input_with_bias.dot(&self.weights);
+        self.output = input_with_bias.dot(&self.weights);
 
         // Apply activation function
-        self.activities = self.activation_function.compute(output);
+        self.activities = self.activation_function.compute(&self.output);
 
-        // Return layer result
-        &self.activities
     }
 }

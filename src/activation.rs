@@ -14,14 +14,14 @@ pub enum Activation {
 
 
 impl Activation {
-    pub fn compute(&self, array: Array2<f64>) -> Array2<f64> {
+    pub fn compute(&self, array: &Array2<f64>) -> Array2<f64> {
         match *self {
             Activation::Identity => {
-                array
+                array.clone()
             },
             Activation::Binary(threshold) => {
                 array.map(|v| if *v < threshold { 0.0 } else { 1.0 })
-            }
+            },
             Activation::Sigmoid => {
                 array.map(|v| 1.0 / (1.0 + (-v).exp()))
             },
@@ -33,15 +33,47 @@ impl Activation {
             },
             Activation::LeakyReLU(slope) => {
                 array.map(|v| if *v < 0.0 { v * slope } else { *v })
-            }
+            },
             Activation::Softmax => {
                 let mut result = array.clone();
                 for i in 0..result.rows() {
-                    let sum_exp =  array.slice(s![i, ..]).map(|v| v.exp()).scalar_sum();
+                    let sum_exp = array.slice(s![i, ..]).map(|v| v.exp()).scalar_sum();
                     result.slice_mut(s![i, ..]).assign(&array.slice(s![i, ..]).map(|v| v.exp() / sum_exp));
                 }
                 result
-            }
+            },
+        }
+    }
+
+    // TODO : implement all derivatives
+    pub fn compute_derivative(&self, array: &Array2<f64>) -> Array2<f64> {
+        match *self {
+            Activation::Identity => {
+                array.map(|_| 1.0)
+            },
+            Activation::Binary(threshold) => {  // TODO : still todo
+                array.map(|v| if *v < threshold { 0.0 } else { 1.0 })
+            },
+            Activation::Sigmoid => {
+                self.compute(array).map(|v| v * (1.0 - v))
+            },
+            Activation::TanH => {
+                array.map(|v| 1.0 - v.tanh().powi(2))
+            },
+            Activation::ReLU => {
+                array.map(|v| if *v < 0.0 { 0.0 } else { 1.0 })
+            },
+            Activation::LeakyReLU(slope) => { // TODO : still todo
+                array.map(|v| if *v < 0.0 { v * slope } else { *v })
+            },
+            Activation::Softmax => { // TODO : still todo
+                let mut result = array.clone();
+                for i in 0..result.rows() {
+                    let sum_exp = array.slice(s![i, ..]).map(|v| v.exp()).scalar_sum();
+                    result.slice_mut(s![i, ..]).assign(&array.slice(s![i, ..]).map(|v| v.exp() / sum_exp));
+                }
+                result
+            },
         }
     }
 }
@@ -57,7 +89,7 @@ mod tests {
 
     fn test_activation_function(activation_function: Activation, input: Array2<f64>, expected_result: Array2<f64>) {
 
-        assert_eq!(expected_result, activation_function.compute(input));
+        assert_eq!(expected_result, activation_function.compute(&input));
 
         // TODO : derivative results too
     }

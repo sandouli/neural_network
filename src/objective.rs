@@ -22,7 +22,7 @@ pub enum Objective {
 }
 
 impl Objective {
-    pub fn calculate_error(&self, output: Array2<f64>, expected_output: Array2<f64>) -> Array2<f64> {
+    pub fn calculate_error(&self, output: &Array2<f64>, expected_output: &Array2<f64>) -> Array2<f64> {
         match *self {
             Objective::SumSquaredError => {
                 assert_eq!(output.rows(), expected_output.rows());

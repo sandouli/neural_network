@@ -7,3 +7,4 @@ authors = ["sandouli"]
 ndarray = "0.12.0"
 rand = "0.5.5"
 ndarray-rand = "0.8.0"
+mnist = "0.4.0"

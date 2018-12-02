@@ -25,32 +25,31 @@ impl NeuralNetwork {
         layer_result
     }
 
-    pub fn train(&mut self, training_set: &mut Array2<f64>, expected_result: Array2<f64>, objective_function: Objective) {
+    pub fn train(&mut self, training_set: &mut Array2<f64>, expected_result: Array2<f64>, objective_function: Objective, batch_size: usize) {
         assert_eq!(training_set.rows(), expected_result.rows(), "Training set should have same amount of rows as expected results");
+        assert!(batch_size > 0, "Batch size must be greater than zero");
 
-        //TODO : add parameter for batch size to train function
+        let mut data = Array2::<f64>::ones((batch_size, training_set.cols()));
+        let mut result = Array2::<f64>::ones((batch_size, expected_result.cols()));
 
-        let mut data = Array2::<f64>::ones((1, training_set.cols()));
-        let mut result = Array2::<f64>::ones((1, expected_result.cols()));
+        let mut i = 0;
 
-        for i in 0..training_set.rows() {
-            data.slice_mut(s![.., ..]).assign(&training_set.slice(s![i, ..]));
-            result.slice_mut(s![.., ..]).assign(&expected_result.slice(s![i, ..]));
+        while i < training_set.rows() {
 
+            data.slice_mut(s![.., ..]).assign(&training_set.slice(s![i..training_set.rows().min(batch_size + i), ..]));
+            result.slice_mut(s![.., ..]).assign(&expected_result.slice(s![i..training_set.rows().min(batch_size + i), ..]));
 
             let network_result = self.feed_forward(&data);
             assert_eq!(expected_result.cols(), network_result.cols(), "Expected result and actual result do not have the same amount of columns");
 
             let total_error = objective_function.calculate_error(&network_result, &result);
 
-
             self.backpropagation(&data, &network_result, &result, &objective_function);
 
+            println!("Iteration {}; error: {}", i / batch_size, total_error[[0, 0]]);
+            i += batch_size;
+
         }
-
-
-
-        // Stochastic gradient descent -> Mini batches of training set to compare to expected results instead of the whole batch ?
     }
 
     fn backpropagation(&mut self, input: &Array2<f64>, actual: &Array2<f64>, ideal: &Array2<f64>, objective_function: &Objective) {
@@ -86,7 +85,7 @@ impl NeuralNetwork {
                 result = result.dot(&self.layers[i].weights.t());
             }
 
-            let learning_rate = 0.01;   // TODO : add parameter learning_rate to training function
+            let learning_rate = 0.001;   // TODO : add parameter learning_rate to training function
 
             self.layers[i].weights = &self.layers[i].weights + &(&diff_weight * learning_rate);
 

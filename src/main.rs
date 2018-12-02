@@ -70,7 +70,7 @@ fn test_training_addition_network() {
 
     println!("Before training : {:?}", network.feed_forward(&arr2(&[[1.0 / 100.0, 2.0 / 100.0]])));
 
-    network.train(&mut input_data, expected_result.clone(), Objective::SumSquaredError);
+    network.train(&mut input_data, expected_result.clone(), Objective::SumSquaredError, 100);
 
     println!("After training : {:?}", network.feed_forward(&arr2(&[[1.0 / 100.0, 2.0 / 100.0]]))); // Should equals 0.03
     println!("After training : {:?}", network.feed_forward(&arr2(&[[2.0 / 100.0, 2.0 / 100.0]]))); // Should equals 0.04
@@ -81,38 +81,74 @@ fn test_mnist() {
     use mnist::{Mnist, MnistBuilder};
 
     let training_set_size = 50000;
+    let test_set_size: usize = 1;
 
-    let mut input_data = Array2::<f64>::zeros((training_set_size, 28 * 28));
-    let mut expected_result = Array2::<f64>::zeros((training_set_size, 10));
+    let mut network = NeuralNetworkBuilder::new(28 * 28)
+//        .layer(2, Activation::Sigmoid)
+//        .layer(12, Activation::ReLU)
+        .layer(10, Activation::Softmax)
+        .build();
 
-    let Mnist { trn_img, trn_lbl, .. } = MnistBuilder::new()
+    let Mnist { trn_img, trn_lbl, val_img, val_lbl, tst_img, tst_lbl } = MnistBuilder::new()
         .label_format_digit()
         .training_set_length(training_set_size as u32)
         .validation_set_length(10_000)
-        .test_set_length(10_000)
+        .test_set_length(test_set_size as u32)
         .finalize();
 
 
 
     println!("Preparing training set");
+    let mut training_input_data = Array2::<f64>::zeros((training_set_size, 28 * 28));
+    let mut training_expected_result = Array2::<f64>::zeros((training_set_size, 10));
 
     for i in 0..training_set_size {
         for j in 0..(28*28) {
-            input_data[[i, j]] = trn_img[i * 784 + j] as f64;
+            training_input_data[[i, j]] =  if trn_img[i * 784 + j] > 253 {
+                1.0
+            } else {
+                0.0
+            };
         }
-        expected_result[[i, trn_lbl[i] as usize]] = 1.0;
+        training_expected_result[[i, trn_lbl[i] as usize]] = 1.0;
     }
+
+
+    println!("Preparing test set");
+    let mut test_input_data = Array2::<f64>::zeros((test_set_size, 28 * 28));
+    let mut test_expected_result = Array2::<f64>::zeros((test_set_size, 10));
+
+    for i in 0..test_set_size {
+        for j in 0..(28*28) {
+            test_input_data[[i, j]] =  if tst_img[i * 784 + j] > 253 {
+                1.0
+            } else {
+                0.0
+            };
+        }
+        test_expected_result[[i, tst_lbl[i] as usize]] = 1.0;
+    }
+
+    println!("Test feed forward : {:?}", network.feed_forward(&test_input_data));
+    println!("Test expected result : {:?}", test_expected_result);
+
 
     println!("Starting training");
 
-    let mut network = NeuralNetworkBuilder::new(input_data.cols())
-        .layer(4, Activation::Binary(253.0))
-        .layer(512, Activation::ReLU)
-        .layer(10, Activation::Softmax)
-        .build();
 
-    network.train(&mut input_data, expected_result.clone(), Objective::SumSquaredError);
+//    for _ in 0..1000 {
+//        network.train(&mut test_input_data, test_expected_result.clone(), Objective::SumSquaredError);
+//    }
 
+    for _ in 0..1 {
+        network.train(
+            &mut training_input_data,
+            training_expected_result.clone(),
+            Objective::SumSquaredError,
+            100);
+    }
 
+    println!("Test feed forward : {:?}", network.feed_forward(&test_input_data));
+    println!("Test expected result : {:?}", test_expected_result);
 
 }

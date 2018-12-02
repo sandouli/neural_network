@@ -63,16 +63,11 @@ impl Activation {
             Activation::ReLU => {
                 array.map(|v| if *v < 0.0 { 0.0 } else { 1.0 })
             },
-            Activation::LeakyReLU(slope) => { // TODO : still todo
-                array.map(|v| if *v < 0.0 { v * slope } else { *v })
+            Activation::LeakyReLU(slope) => {
+                array.map(|v| if *v < 0.0 { slope } else { 1 })
             },
-            Activation::Softmax => { // TODO : still todo
-                let mut result = array.clone();
-                for i in 0..result.rows() {
-                    let sum_exp = array.slice(s![i, ..]).map(|v| v.exp()).scalar_sum();
-                    result.slice_mut(s![i, ..]).assign(&array.slice(s![i, ..]).map(|v| v.exp() / sum_exp));
-                }
-                result
+            Activation::Softmax => {
+                array.map(|v| (v - 1.0) / array.cols() as f64)
             },
         }
     }

@@ -3,6 +3,8 @@ extern crate rand;
 extern crate ndarray;
 extern crate ndarray_rand;
 
+extern crate mnist;
+
 
 
 
@@ -25,7 +27,9 @@ use objective::Objective;
 
 fn main() {
 
-    test_training_addition_network();
+//    test_training_addition_network();
+
+    test_mnist();
 
     // TODO : test current implementation with MNIST
 
@@ -71,4 +75,44 @@ fn test_training_addition_network() {
     println!("After training : {:?}", network.feed_forward(&arr2(&[[1.0 / 100.0, 2.0 / 100.0]]))); // Should equals 0.03
     println!("After training : {:?}", network.feed_forward(&arr2(&[[2.0 / 100.0, 2.0 / 100.0]]))); // Should equals 0.04
     println!("After training : {:?}", network.feed_forward(&arr2(&[[20.0 / 100.0, 2.0 / 100.0]]))); // Should equals 0.22
+}
+
+fn test_mnist() {
+    use mnist::{Mnist, MnistBuilder};
+
+    let training_set_size = 50000;
+
+    let mut input_data = Array2::<f64>::zeros((training_set_size, 28 * 28));
+    let mut expected_result = Array2::<f64>::zeros((training_set_size, 10));
+
+    let Mnist { trn_img, trn_lbl, .. } = MnistBuilder::new()
+        .label_format_digit()
+        .training_set_length(training_set_size as u32)
+        .validation_set_length(10_000)
+        .test_set_length(10_000)
+        .finalize();
+
+
+
+    println!("Preparing training set");
+
+    for i in 0..training_set_size {
+        for j in 0..(28*28) {
+            input_data[[i, j]] = trn_img[i * 784 + j] as f64;
+        }
+        expected_result[[i, trn_lbl[i] as usize]] = 1.0;
+    }
+
+    println!("Starting training");
+
+    let mut network = NeuralNetworkBuilder::new(input_data.cols())
+        .layer(4, Activation::Binary(253.0))
+        .layer(512, Activation::ReLU)
+        .layer(10, Activation::Softmax)
+        .build();
+
+    network.train(&mut input_data, expected_result.clone(), Objective::SumSquaredError);
+
+
+
 }

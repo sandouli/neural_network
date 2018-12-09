@@ -25,34 +25,36 @@ impl NeuralNetwork {
         layer_result
     }
 
-    pub fn train(&mut self, training_set: &mut Array2<f64>, expected_result: Array2<f64>, objective_function: Objective, batch_size: usize) {
+    pub fn train(&mut self, training_set: &mut Array2<f64>, expected_result: Array2<f64>, objective_function: Objective, batch_size: usize, learning_rate: f64) {
         assert_eq!(training_set.rows(), expected_result.rows(), "Training set should have same amount of rows as expected results");
         assert!(batch_size > 0, "Batch size must be greater than zero");
 
-        let mut data = Array2::<f64>::ones((batch_size, training_set.cols()));
-        let mut result = Array2::<f64>::ones((batch_size, expected_result.cols()));
+        // TODO: debug layers to find out where NaN numbers come from when using ReLU layer before softmax
+
 
         let mut i = 0;
 
         while i < training_set.rows() {
 
-            data.slice_mut(s![.., ..]).assign(&training_set.slice(s![i..training_set.rows().min(batch_size + i), ..]));
-            result.slice_mut(s![.., ..]).assign(&expected_result.slice(s![i..training_set.rows().min(batch_size + i), ..]));
+            let current_max_row = training_set.rows().min(batch_size + i);
+
+            let mut data = training_set.slice(s![i..current_max_row, ..]).to_owned();
+            let mut result = expected_result.slice(s![i..current_max_row, ..]).to_owned();
 
             let network_result = self.feed_forward(&data);
             assert_eq!(expected_result.cols(), network_result.cols(), "Expected result and actual result do not have the same amount of columns");
 
             let total_error = objective_function.calculate_error(&network_result, &result);
 
-            self.backpropagation(&data, &network_result, &result, &objective_function);
+            self.backpropagation(&data, &network_result, &result, &objective_function, learning_rate);
 
-            println!("Iteration {}; error: {}", i / batch_size, total_error[[0, 0]]);
+            println!("Iteration {}; error: {}", i / batch_size, total_error.scalar_sum() / total_error.rows() as f64);
             i += batch_size;
-
         }
+
     }
 
-    fn backpropagation(&mut self, input: &Array2<f64>, actual: &Array2<f64>, ideal: &Array2<f64>, objective_function: &Objective) {
+    fn backpropagation(&mut self, input: &Array2<f64>, actual: &Array2<f64>, ideal: &Array2<f64>, objective_function: &Objective, learning_rate: f64) {
         // Chain rule of last layer :
         // 2 * (activities of last layer - expected of last layer)
         // *
@@ -60,6 +62,8 @@ impl NeuralNetwork {
         // *
         // activities_before_layer
         //
+
+        // TODO : separate bias from weights matrix to fix backpropagation
 
         let base: Array2<f64> = 2.0 * (ideal - actual);
 
@@ -84,8 +88,6 @@ impl NeuralNetwork {
             if i > 0 {
                 result = result.dot(&self.layers[i].weights.t());
             }
-
-            let learning_rate = 0.001;   // TODO : add parameter learning_rate to training function
 
             self.layers[i].weights = &self.layers[i].weights + &(&diff_weight * learning_rate);
 

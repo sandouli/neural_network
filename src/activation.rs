@@ -10,6 +10,7 @@ pub enum Activation {
     ReLU,
     LeakyReLU(f64),
     Softmax,
+    LogSoftmax,
 }
 
 
@@ -36,23 +37,49 @@ impl Activation {
             },
             Activation::Softmax => {
                 let mut result = array.clone();
+                let mut inter = array.clone();
                 for i in 0..result.rows() {
-                    let sum_exp = array.slice(s![i, ..]).map(|v| v.exp()).scalar_sum();
-                    result.slice_mut(s![i, ..]).assign(&array.slice(s![i, ..]).map(|v| v.exp() / sum_exp));
+                    let max_value = array.slice(s![i, ..]).iter().cloned().fold(0./0., f64::max);
+                    inter.slice_mut(s![i, ..]).assign(&array.slice(s![i, ..]).map(|v| (v - max_value).exp()));
+                    let sum = inter.slice(s![i, ..]).scalar_sum();
+                    result.slice_mut(s![i, ..]).assign(&inter.slice(s![i, ..]).map(|v| v / sum));
                 }
+                result
+            },
+            Activation::LogSoftmax => {
+
+                let mut result = array.clone();
+
+                // First implementation
+                for i in 0..array.rows() {
+                    let log_sum_exp = (array.slice(s![i, ..]).map(|v| v.exp()).scalar_sum() as f64).ln();
+                    result.slice_mut(s![i, ..]).assign(&array.slice(s![i, ..]).map(|v| v - log_sum_exp));
+                }
+
+                // Second implementation
+//                for i in 0..result.rows() {
+//                    let max_value = array.slice(s![i, ..]).iter().cloned().fold(0. / 0., f64::max);
+//                    let log_sum_exp = array.slice(s![i, ..]).map(|v| (v - max_value).exp()).scalar_sum() + max_value;
+//                    result.slice_mut(s![i, ..]).assign(&array.slice(s![i, ..]).map(|v| v - log_sum_exp));
+//                }
+
+                // TODO : see https://github.com/deeplearning4j/nd4j/issues/2822 for other implementations ?
+
+
+
+
                 result
             },
         }
     }
 
-    // TODO : implement all derivatives
     pub fn compute_derivative(&self, array: &Array2<f64>) -> Array2<f64> {
         match *self {
             Activation::Identity => {
                 array.map(|_| 1.0)
             },
-            Activation::Binary(threshold) => {  // TODO : still todo
-                array.map(|v| if *v < threshold { 0.0 } else { 1.0 })
+            Activation::Binary(threshold) => {
+                array.map(|v| 0.0)
             },
             Activation::Sigmoid => {
                 self.compute(array).map(|v| v * (1.0 - v))
@@ -64,11 +91,15 @@ impl Activation {
                 array.map(|v| if *v < 0.0 { 0.0 } else { 1.0 })
             },
             Activation::LeakyReLU(slope) => {
-                array.map(|v| if *v < 0.0 { slope } else { 1 })
+                array.map(|v| if *v < 0.0 { slope } else { 1.0 })
             },
             Activation::Softmax => {
                 array.map(|v| (v - 1.0) / array.cols() as f64)
             },
+            Activation::LogSoftmax => {
+                Activation::Softmax.compute_derivative(array)
+                // TODO : implement
+            }
         }
     }
 }
@@ -82,18 +113,26 @@ mod tests {
     use ndarray::arr2;
     use super::*;
 
-    fn test_activation_function(activation_function: Activation, input: Array2<f64>, expected_result: Array2<f64>) {
+    fn test_activation_function(activation_function: Activation, input: Array2<f64>, expected_result: Array2<f64>, expected_derivative: Array2<f64>) {
 
         assert_eq!(expected_result, activation_function.compute(&input));
 
-        // TODO : derivative results too
+        assert_eq!(expected_derivative, activation_function.compute_derivative(&input));    // TODO : Implement all derivatives
     }
 
     #[test]
     fn identity() {
         let input = arr2(&[[1., 2., 3., 4.], [5., 6., 7., 8.]]);
 
-        test_activation_function(Activation::Identity, input.clone(), input);
+        test_activation_function(
+            Activation::Identity,
+            input.clone(),
+            input,
+            arr2(&[
+                [1., 1., 1., 1.],
+                [1., 1., 1., 1.],
+            ]),
+        );
     }
 
     #[test]
@@ -107,6 +146,10 @@ mod tests {
             arr2(&[
                 [0., 1., 1., 0.],
                 [1., 1., 0., 0.],
+            ]),
+            arr2(&[
+                [0., 0., 0., 0.],
+                [0., 0., 0., 0.],
             ]),
         );
     }
@@ -131,6 +174,20 @@ mod tests {
                     0.52497918747894,
                     0.5274723043445937,
                     0.999983298578152,
+                ],
+            ]),
+            arr2(&[
+                [
+                    0.006648056670790155,
+                    0.19661193324148185,
+                    0.25,
+                    0.002466509291359931,
+                ],
+                [
+                    0.19661193324148185,
+                    0.24937604019289197,
+                    0.24924527249399803,
+                    0.00001670114291046157,
                 ],
             ]),
         );
@@ -158,6 +215,20 @@ mod tests {
                     0.9999999994421064,
                 ],
             ]),
+            arr2(&[
+                [
+                    0.0001815832309438603,
+                    0.41997434161402614,
+                    1.0,
+                    0.000024576547405286142,
+                ],
+                [
+                    0.41997434161402614,
+                    0.9900662908474398,
+                    0.987996941604274,
+                    0.000000001115787240379973,
+                ],
+            ]),
         );
     }
 
@@ -173,6 +244,10 @@ mod tests {
                 [0., 0., 0., 0.],
                 [1., 0.1, 0.01, 11.],
             ]),
+            arr2(&[
+                [0., 0., 1., 0.],
+                [1., 1., 1., 1.],
+            ]),
         );
     }
 
@@ -187,6 +262,10 @@ mod tests {
             arr2(&[
                 [-1.5, -0.3, 0., -0.03],
                 [1., 0.1, 0.01, 11.],
+            ]),
+            arr2(&[
+                [0.3, 0.3, 1., 0.3],
+                [1., 1., 1., 1.],
             ]),
         );
     }
@@ -207,11 +286,15 @@ mod tests {
                     0.3969534362217987,
                 ],
                 [
-                    0.0000453962650255386,
-                    0.00001845674402492729,
-                    0.000016868193942949457,
-                    0.9999192787970066,
+                    0.00004539626502553861,
+                    0.000018456744024927285,
+                    0.00001686819394294945,
+                    0.9999192787970065,
                 ],
+            ]),
+            arr2(&[
+                [-1.5, -0.5, -0.25, -0.275],
+                [0.0, -0.225, -0.2475, 2.5],
             ]),
         );
     }

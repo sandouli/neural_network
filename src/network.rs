@@ -48,22 +48,19 @@ impl NeuralNetwork {
 
             self.backpropagation(&data, &network_result, &result, &objective_function, learning_rate);
 
-            println!("Iteration {}; error: {}", i / batch_size, total_error.scalar_sum() / total_error.rows() as f64);
+            println!("Iteration {}; error: {}", i / batch_size, total_error);
             i += batch_size;
         }
     }
 
     fn backpropagation(&mut self, input: &Array2<f64>, actual: &Array2<f64>, ideal: &Array2<f64>, objective_function: &Objective, learning_rate: f64) {
 
-        let base: Array2<f64> = 2.0 * (ideal - actual); // TODO : should be derivative of objective_function
-
         let number_of_layers = self.layers.len();
-
-        let mut result = base.clone();
+        let mut result = objective_function.compute_derivative(&actual, &ideal);
 
         for i in (0..number_of_layers).rev() {
 
-            result = result * self.layers[i].activation_function.compute_derivative(&self.layers[i].output);
+            result = self.layers[i].activation_function.compute_loss(&result, &self.layers[i].output);
 
             let diff_weight = if i == 0 {
                 input.t().dot(&result)
@@ -76,13 +73,19 @@ impl NeuralNetwork {
                 diff_bias[[0, j]] = result.slice(s![.., j]).scalar_sum() / result.rows() as f64;
             }
 
-            // Update weights and bias
-            self.layers[i].bias = &self.layers[i].bias + &(&diff_bias * learning_rate);
-            self.layers[i].weights = &self.layers[i].weights + &(&diff_weight * learning_rate);
 
             if i > 0 {
                 result = result.dot(&self.layers[i].weights.t());
             }
+
+            //println!("Layer {}", i);
+            //println!("Diff weight : {:?}", diff_weight);
+            //println!("Diff bias : {:?}", diff_bias);
+
+
+            // Update weights and bias
+            self.layers[i].bias = &self.layers[i].bias + &(&diff_bias * learning_rate);     // TODO : should learning rate for bias be different ?
+            self.layers[i].weights = &self.layers[i].weights + &(&diff_weight * learning_rate);
         }
     }
 }

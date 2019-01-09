@@ -43,6 +43,25 @@ impl Objective {
 
                 error.scalar_sum() / error.rows() as f64
             },
+            Objective::CrossEntropy => {
+                // Trying https://www.youtube.com/watch?v=PHP8beSz5o4
+                let mut result = 0.0;
+                // Epsilon is used to prevent NaN when trying ln(0.0)
+                let epsilon = 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001;
+                for i in 0..output.rows() {
+                    for j in 0..output.cols() {
+                        //println!("Expected result : {:?}", expected_output[[i, j]]);
+                        //println!("Calculated result : {:?}", output[[i, j]]);
+                        //println!("Calculated result ln : {:?}", output[[i, j]].ln());
+                        //println!("Formula : {:?}", expected_output[[i, j]] * output[[i, j]].ln());
+
+                        result += expected_output[[i, j]] * (output[[i, j]] + epsilon).ln();
+                        //println!("Temp result : {:?}", result);
+                    }
+                }
+
+                (-1.0 / output.rows() as f64) * result
+            }
             _ => unreachable!(),
         }
     }
@@ -54,6 +73,11 @@ impl Objective {
         match *self {
             Objective::SumSquaredError => {
                 2.0 * (expected_output - output)    // TODO : probably not good, look it up
+            },
+            Objective::CrossEntropy => {
+                // Trying https://www.youtube.com/watch?v=PHP8beSz5o4
+                //output - expected_output
+                expected_output - output
             },
             _ => unreachable!(),
         }

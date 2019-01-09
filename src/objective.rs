@@ -46,6 +46,19 @@ impl Objective {
             _ => unreachable!(),
         }
     }
+
+    pub fn compute_derivative(&self, output: &Array2<f64>, expected_output: &Array2<f64>) -> Array2<f64> {
+        assert_eq!(output.rows(), expected_output.rows());
+        assert_eq!(output.cols(), expected_output.cols());
+
+        match *self {
+            Objective::SumSquaredError => {
+                2.0 * (expected_output - output)    // TODO : probably not good, look it up
+            },
+            _ => unreachable!(),
+        }
+
+    }
 }
 
 

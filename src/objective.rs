@@ -2,12 +2,14 @@
 
 use ndarray::{Array2, Zip};
 
+#[derive(Copy, Clone)]
 pub enum Objective {
     // Classification : predicts a label
     Log,    // Related to Cross Entropy ?
     Focal,
     Exponential,
     Hinge,
+    CrossEntropy,
 
     // Regression : predicts a quantity
     SumSquaredError,    // Currently testing this one
@@ -22,12 +24,11 @@ pub enum Objective {
 }
 
 impl Objective {
-    pub fn calculate_error(&self, output: &Array2<f64>, expected_output: &Array2<f64>) -> Array2<f64> {
+    pub fn calculate_error(&self, output: &Array2<f64>, expected_output: &Array2<f64>) -> f64 {
+        assert_eq!(output.rows(), expected_output.rows());
+        assert_eq!(output.cols(), expected_output.cols());
         match *self {
             Objective::SumSquaredError => {
-                assert_eq!(output.rows(), expected_output.rows());
-                assert_eq!(output.cols(), expected_output.cols());
-
                 let mut squared_diffs: Array2<f64> = Array2::zeros(expected_output.dim());
                 Zip::from(&mut squared_diffs)
                     .and(output.view())
@@ -40,7 +41,7 @@ impl Objective {
                     error[[i, 0]] = 0.5 * squared_diffs.slice(s![i, ..]).scalar_sum();
                 }
 
-                error
+                error.scalar_sum() / error.rows() as f64
             },
             _ => unreachable!(),
         }
@@ -76,7 +77,7 @@ mod tests {
             ]
         );
 
-        assert_eq!(objective_function.compute(output, expected_output), error);
+        assert_eq!(objective_function.calculate_error(&output, &expected_output), error.scalar_sum() as f64 / error.rows() as f64);
     }
 
 }

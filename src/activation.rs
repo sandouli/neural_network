@@ -88,13 +88,26 @@ impl Activation {
                 array.map(|v| 1.0 - v.tanh().powi(2))
             },
             Activation::ReLU => {
-                array.map(|v| if *v < 0.0 { 0.0 } else { 1.0 })
+                array.map(|v| if *v > 0.0 { 1.0 } else { 0.0 })
             },
             Activation::LeakyReLU(slope) => {
-                array.map(|v| if *v < 0.0 { slope } else { 1.0 })
+                array.map(|v| if *v > 0.0 { 1.0 } else { slope })
             },
             Activation::Softmax => {
-                array.map(|v| (v - 1.0) / array.cols() as f64)
+                // Testing jacobian derivative
+                assert_eq!(array.rows(), 1);
+                let mut result = Array2::<f64>::zeros((array.cols(), array.cols()));
+                for i in 0..array.cols() {
+                    for j in 0..array.cols() {
+                        let kronecker_delta = if i == j {
+                            1.0
+                        } else {
+                            0.0
+                        };
+                        result[[i, j ]] = array[[0, i]] * (kronecker_delta - array[[0, j]]);
+                    }
+                }
+                result
             },
             Activation::LogSoftmax => {
                 Activation::Softmax.compute_derivative(array)
@@ -245,7 +258,7 @@ mod tests {
                 [1., 0.1, 0.01, 11.],
             ]),
             arr2(&[
-                [0., 0., 1., 0.],
+                [0., 0., 0., 0.],
                 [1., 1., 1., 1.],
             ]),
         );
@@ -264,7 +277,7 @@ mod tests {
                 [1., 0.1, 0.01, 11.],
             ]),
             arr2(&[
-                [0.3, 0.3, 1., 0.3],
+                [0.3, 0.3, 0.3, 0.3],
                 [1., 1., 1., 1.],
             ]),
         );

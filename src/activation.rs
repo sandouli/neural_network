@@ -73,7 +73,7 @@ impl Activation {
         }
     }
 
-    pub fn compute_derivative(&self, array: &Array2<f64>) -> Array2<f64> {
+    fn compute_derivative(&self, array: &Array2<f64>) -> Array2<f64> {
         match *self {
             Activation::Identity => {
                 array.map(|_| 1.0)
@@ -94,6 +94,7 @@ impl Activation {
                 array.map(|v| if *v > 0.0 { 1.0 } else { slope })
             },
             Activation::Softmax => {
+                // WARNING : must be called by compute_loss() function only
                 // Testing jacobian derivative
                 assert_eq!(array.rows(), 1);
                 let mut result = Array2::<f64>::zeros((array.cols(), array.cols()));
@@ -115,6 +116,41 @@ impl Activation {
             }
         }
     }
+
+    pub fn compute_loss(&self, objective_derivative: &Array2<f64>, array: &Array2<f64>) -> Array2<f64> {
+        assert_eq!(objective_derivative.rows(), array.rows(), "Objective and array does not have same amount of rows");
+        assert_eq!(objective_derivative.cols(), array.cols(), "Objective and array does not have same amount of columns");
+
+        let mut loss = Array2::<f64>::zeros((objective_derivative.rows(), objective_derivative.cols()));
+
+
+        match *self {
+            Activation::Softmax => {
+
+                let mut result = objective_derivative.clone();
+                for i in 0..objective_derivative.rows() {
+                    let activation_derivative = self.compute_derivative(&self.compute(&array.slice(s![i..i+1, ..]).to_owned()));
+                    //let activation_derivative = self.compute_derivative(&array.slice(s![i..i+1, ..]).to_owned());
+
+
+                    result
+                        .slice_mut(s![i..i+1, ..])
+                        .assign(
+                            &(
+                                objective_derivative.slice(s![i..i+1, ..]).dot(&activation_derivative)
+                            )
+                        );
+                }
+                loss = result;
+            },
+            _ => {
+                //loss = objective_derivative * &self.compute_derivative(&self.compute(array));
+                loss = objective_derivative * &self.compute_derivative(array);
+            }
+        }
+        loss
+    }
+
 }
 
 

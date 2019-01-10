@@ -29,9 +29,6 @@ impl NeuralNetwork {
         assert_eq!(training_set.rows(), expected_result.rows(), "Training set should have same amount of rows as expected results");
         assert!(batch_size > 0, "Batch size must be greater than zero");
 
-        // TODO: debug layers to find out where NaN numbers come from when using ReLU layer before softmax
-
-
         let mut i = 0;
 
         while i < training_set.rows() {
@@ -39,14 +36,14 @@ impl NeuralNetwork {
             let current_max_row = training_set.rows().min(batch_size + i);
 
             let mut data = training_set.slice(s![i..current_max_row, ..]).to_owned();
-            let mut result = expected_result.slice(s![i..current_max_row, ..]).to_owned();
+            let mut expected_result_slice = expected_result.slice(s![i..current_max_row, ..]).to_owned();
 
             let network_result = self.feed_forward(&data);
             assert_eq!(expected_result.cols(), network_result.cols(), "Expected result and actual result do not have the same amount of columns");
 
-            let total_error = objective_function.calculate_error(&network_result, &result);
+            let total_error = objective_function.calculate_error(&network_result, &expected_result_slice);
 
-            self.backpropagation(&data, &network_result, &result, &objective_function, learning_rate);
+            self.backpropagation(&data, &network_result, &expected_result_slice, &objective_function, learning_rate);
 
             println!("Iteration {}; error: {}", i / batch_size, total_error);
             i += batch_size;
@@ -87,5 +84,17 @@ impl NeuralNetwork {
             self.layers[i].bias = &self.layers[i].bias + &(&diff_bias * learning_rate);     // TODO : should learning rate for bias be different ?
             self.layers[i].weights = &self.layers[i].weights + &(&diff_weight * learning_rate);
         }
+    }
+
+    pub fn get_expected_input(&self, expected_output: &Array2<f64>) -> Array2<f64> {
+        let mut result = expected_output.clone();
+
+        for i in (0..self.layers.len()).rev() {
+            result = self.layers[i].activation_function.compute_reverse(&result);
+            result = result - &self.layers[i].bias;
+            result = result.dot(&self.layers[i].weights.t());
+        }
+
+        result
     }
 }

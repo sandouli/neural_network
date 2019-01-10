@@ -151,6 +151,16 @@ impl Activation {
         loss
     }
 
+    pub fn compute_reverse(&self, array: &Array2<f64>) -> Array2<f64> {     // Is that really useful for heatmap ?
+        match *self {
+            Activation::Softmax => {
+                array.clone()
+            },
+            _ => array.clone(),
+            //_ => unreachable!(),
+        }
+    }
+
 }
 
 
